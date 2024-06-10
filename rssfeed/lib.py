@@ -66,8 +66,6 @@ def parse(data):
         if item.get("id"):
             if not item["url"] and item["id"].startswith("http"):
                 item["url"] = item["id"]
-            # if not item["url"].startswith("http"):
-            #     item["url"] = f"https://{item["url"]}"
             del item["id"]
 
         if feed["lastupdate"] < item["timestamp"]:
