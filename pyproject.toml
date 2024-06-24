@@ -1,4 +1,5 @@
 [build-system]
+requires = []
 build-backend = "pdm.backend"
 
 [project]

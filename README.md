@@ -15,7 +15,6 @@ import rssfeed
 feed = rssfeed.parse(requests.get("https://www.solidot.org/index.rss").text)
 print(feed)
 ```
-
 ```
 {
   "name": "奇客Solidot–传递最新科技情报",
@@ -42,6 +41,7 @@ print(feed)
       "url": "https://www.solidot.org/story?sid=78336",
       "content": "Hugging Face 官方博客披露黑客窃取了其 Spaces 平台的身份验证令牌。Spaces 是社区用户创建和递交 AI 应用的库 ..."
     }
+    ...
   ]
 }
 ```

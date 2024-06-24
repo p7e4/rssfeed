@@ -1,7 +1,7 @@
 from dateutil.parser import parse as timeParse
 from xml.etree import ElementTree
 
-__version__ = "0.1"
+__version__ = "0.2"
 
 def parse(data):
     if not data or not (data:=data.lstrip()):
@@ -38,7 +38,13 @@ def parse(data):
                 case "summary" | "description" | "encoded":
                     tag = "content"
                 case "updated" | "pubDate" | "published" | "lastBuildDate":
-                    items[-1]["timestamp"] = int(text) if text.isdigit() else int(timeParse(text).timestamp())
+                    if text.isdigit():
+                        items[-1]["timestamp"] = int(text)
+                    elif text:
+                        try:
+                            items[-1]["timestamp"] = int(timeParse(text).timestamp())
+                        except:
+                            pass
                     continue
                 case "link":
                     items[-1]["url"] = elem.get("href") if text and elem.get("href") else text
