@@ -1,14 +1,15 @@
 from dateutil.parser import parse as timeParse
 from xml.etree import ElementTree
 
-__version__ = "0.2"
+__version__ = "0.3"
 
 def parse(data):
+    assert type(data) == str, "data argument must be a string"
     if not data or not (data:=data.lstrip()):
         return
     if not any((data.startswith(i) for i in ("<?xml ", "<rss ", "<feed "))):
         return
-    parser = ElementTree.XMLPullParser(("start", "end"), _parser=ElementTree.XMLParser(encoding='utf-8'))
+    parser = ElementTree.XMLPullParser(("start", "end"))
     try:
         parser.feed(data)
         parser.close()
@@ -16,7 +17,7 @@ def parse(data):
         return
 
     items = list()
-    authorTag = False
+    path = list()
     for event, elem in parser.read_events():
         tag = elem.tag.split("}", 1)[1] if elem.tag.startswith("{") else elem.tag
         text = elem.text.strip() if elem.text else str()
@@ -29,12 +30,9 @@ def parse(data):
                     "url": str(),
                     "content": str()
                 })
-            elif tag == "author":
-                authorTag = True
+            path.append(tag)
         else:
             match tag:
-                case "guid":
-                    tag = "id"
                 case "summary" | "description" | "encoded":
                     tag = "content"
                 case "updated" | "pubDate" | "published" | "lastBuildDate":
@@ -47,35 +45,30 @@ def parse(data):
                             pass
                     continue
                 case "link":
-                    items[-1]["url"] = elem.get("href") if text and elem.get("href") else text
+                    items[-1]["url"] = text or elem.get("href")
                     continue
                 case "author":
                     authorTag = False
                     continue
-                case "name" if authorTag:
+                case "name" if path[-2] == "author":
                     tag = "author"
-                case "title" | "id" | "content":
+                case "title" | "content":
                     pass
                 case _:
                     continue
 
             items[-1][tag] = text
+            path.pop()
 
     if not items: return
-    feed = items.pop(0)
     feed = {
-        "name": feed["title"],
-        "lastupdate": feed["timestamp"],
-        "items": items
+        "name": items[0]["title"],
+        "lastupdate": items[0]["timestamp"],
+        "items": items[1:]
     }
-    for item in items:
-        if item.get("id"):
-            if not item["url"] and item["id"].startswith("http"):
-                item["url"] = item["id"]
-            del item["id"]
-
-        if feed["lastupdate"] < item["timestamp"]:
-            feed["lastupdate"] = item["timestamp"]
+    # for item in items:
+    #     if feed["lastupdate"] < item["timestamp"]:
+    #         feed["lastupdate"] = item["timestamp"]
 
     return feed
 
