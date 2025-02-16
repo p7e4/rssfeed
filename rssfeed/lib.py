@@ -1,23 +1,21 @@
 from dateutil.parser import parse as timeParse
 from xml.etree import ElementTree
 
-__version__ = "0.3"
+__version__ = "0.4.0"
+
+class ParseError(Exception):
+    pass
 
 def parse(data):
-    assert type(data) == str, "data argument must be a string"
-    if not data or not (data:=data.lstrip()):
-        return
-    if not any((data.startswith(i) for i in ("<?xml ", "<rss ", "<feed "))):
-        return
     parser = ElementTree.XMLPullParser(("start", "end"))
     try:
         parser.feed(data)
         parser.close()
-    except ElementTree.ParseError:
-        return
+    except ElementTree.ParseError as e:
+        raise ParseError("xml parse fail") from e
 
     items = list()
-    path = list()
+    lastTag = str()
     for event, elem in parser.read_events():
         tag = elem.tag.split("}", 1)[1] if elem.tag.startswith("{") else elem.tag
         text = elem.text.strip() if elem.text else str()
@@ -30,45 +28,35 @@ def parse(data):
                     "url": str(),
                     "content": str()
                 })
-            path.append(tag)
         else:
+            i = items[-1]
             match tag:
-                case "summary" | "description" | "encoded":
-                    tag = "content"
+                case "content" | "description" | "encoded" | "summary":
+                    i["content"] = text
                 case "updated" | "pubDate" | "published" | "lastBuildDate":
                     if text.isdigit():
-                        items[-1]["timestamp"] = int(text)
+                        i["timestamp"] = int(text)
                     elif text:
                         try:
-                            items[-1]["timestamp"] = int(timeParse(text).timestamp())
-                        except:
-                            pass
-                    continue
+                            i["timestamp"] = int(timeParse(text).timestamp())
+                        except Exception as e:
+                            raise ParseError("time parse fail") from e
                 case "link":
-                    items[-1]["url"] = text or elem.get("href")
-                    continue
-                case "author":
-                    authorTag = False
-                    continue
-                case "name" if path[-2] == "author":
-                    tag = "author"
-                case "title" | "content":
-                    pass
-                case _:
-                    continue
+                    i["url"] = text or elem.get("href")
+                case "name" if lastTag == "author":
+                    i["author"] = text
+                case "title":
+                    i[tag] = text
 
-            items[-1][tag] = text
-            path.pop()
+            lastTag = tag
 
-    if not items: return
+    if not items:
+        raise ParseError("not valid result")
+
     feed = {
         "name": items[0]["title"],
         "lastupdate": items[0]["timestamp"],
         "items": items[1:]
     }
-    # for item in items:
-    #     if feed["lastupdate"] < item["timestamp"]:
-    #         feed["lastupdate"] = item["timestamp"]
 
     return feed
-
