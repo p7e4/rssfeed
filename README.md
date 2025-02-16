@@ -50,7 +50,3 @@ print(feed)
 
 rssfeed **does not** escape any HTML tags, which mean if you does not check the content and display it somewhere html can be rendered, it may lead to [Cross-site scripting](https://developer.mozilla.org/en-US/docs/Glossary/Cross-site_scripting) attacks.
 
-## Changelog
-
-[Changelog.md](/Changelog.md)
-
