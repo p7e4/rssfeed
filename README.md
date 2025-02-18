@@ -1,52 +1,101 @@
 # rssfeed
 
-A simple rss/atom feed parser
+A simple rss/atom/opml parser
 
 ## Installation
 
 `pip install rssfeed`
 
+
 ## Get Started
+
+### rss parse
 
 ``` python
 import requests
 import rssfeed
 
-feed = rssfeed.parse(requests.get("https://www.solidot.org/index.rss").text)
-print(feed)
+text = requests.get("https://lobste.rs/rss").text
+rssfeed.parse(text)
 ```
-```
+
+``` json
 {
-  "name": "奇客Solidot–传递最新科技情报",
-  "lastupdate": 1717423475,
-  "items": [
-    {
-      "title": "中国科学家使用细胞疗法治愈一名患者的糖尿病",
-      "author": "",
-      "timestamp": 1717410594,
-      "url": "https://www.solidot.org/story?sid=78338",
-      "content": "《南华早报》报道，中国科学家利用细胞疗法成功治愈了一名患者的糖尿病。研究报告发表在《Cell Discovery》期刊 ..."
-    },
-    {
-      "title": "Steam 平台 Linux 玩家四分之三使用 AMD CPU",
-      "author": "",
-      "timestamp": 1717404736,
-      "url": "https://www.solidot.org/story?sid=78337",
-      "content": "根据 Valve 公布的 Steam 硬件和软件调查，Linux 份额在过去的五月增长了 0.42% 至 2.32%，macOS 增至 1.47% ..."
-    },
-    {
-      "title": "Hugging Face 称黑客窃取了 Spaces 平台的身份验证令牌",
-      "author": "",
-      "timestamp": 1717400574,
-      "url": "https://www.solidot.org/story?sid=78336",
-      "content": "Hugging Face 官方博客披露黑客窃取了其 Spaces 平台的身份验证令牌。Spaces 是社区用户创建和递交 AI 应用的库 ..."
-    }
-    ...
-  ]
+    "name": "Lobsters",
+    "lastupdate": 1739824193,
+    "items": [
+        {
+            "title": "Why I'm Writing a Scheme Implementation in 2025 (The Answer is Async Rust)",
+            "author": "maplant.com by mplant",
+            "timestamp": 1739824193,
+            "url": "https://maplant.com/2025-02-17-Why-I'm-Writing-a-Scheme-Implementation-in-2025-(The-Answer-is-Async-Rust).html",
+            "content": "<p><a href=\"https://lobste.rs/s/zm1g8r/why_i_m_writing_scheme_implementation\">Comments</a></p>"
+        },
+        {
+            "title": "14 years of systemd",
+            "author": "lwn.net via calvin",
+            "timestamp": 1739814564,
+            "url": "https://lwn.net/SubscriberLink/1008721/7c31808d76480012/",
+            "content": "<p><a href=\"https://lobste.rs/s/c6rk0l/14_years_systemd\">Comments</a></p>"
+        },
+        {
+            "title": "Making the Web More Readable With Stylus",
+            "author": "wezm.net by wezm",
+            "timestamp": 1739757928,
+            "url": "https://www.wezm.net/v2/posts/2025/stylus/",
+            "content": "<p><a href=\"https://lobste.rs/s/sag0p3/making_web_more_readable_with_stylus\">Comments</a></p>"
+        }
+    ]
 }
 ```
 
-## Warning
+> rssfeed **does not** escape HTML tag, which mean if you does not check the content and display it somewhere html can be rendered, it may lead to [Cross-site scripting](https://developer.mozilla.org/en-US/docs/Glossary/Cross-site_scripting) attacks.
 
-rssfeed **does not** escape any HTML tags, which mean if you does not check the content and display it somewhere html can be rendered, it may lead to [Cross-site scripting](https://developer.mozilla.org/en-US/docs/Glossary/Cross-site_scripting) attacks.
+
+### opml parse
+
+``` python
+import rssfeed
+opml = """
+<?xml version="1.0" encoding="UTF-8"?>
+<opml version="1.0">
+  <head>
+    <title>demo feeds</title>
+  </head>
+  <body>
+    <outline text="news">
+      <outline text="奇客Solidot" xmlUrl="https://www.solidot.org/index.rss" type="rss" />
+      <outline text="news-submenu">
+        <outline text="Lobsters" xmlUrl="https://lobste.rs/rss" type="rss" />
+      </outline>
+    </outline>
+    <outline text="阮一峰的网络日志" xmlUrl="https://feeds.feedburner.com/ruanyifeng" type="rss" />
+  </body>
+</opml>
+"""
+rssfeed.opmlParse(opml)
+````
+
+``` json
+{
+    "default": [
+        {
+            "name": "阮一峰的网络日志",
+            "url": "https://feeds.feedburner.com/ruanyifeng"
+        }
+    ],
+    "news": [
+        {
+            "name": "奇客Solidot",
+            "url": "https://www.solidot.org/index.rss"
+        },
+        {
+            "name": "Lobsters",
+            "url": "https://lobste.rs/rss"
+        }
+    ]
+}
+```
+
+as you can see, a two-layer structure will always be generated regardless of the original structure. If the original file includes multiple levels, only the outermost menu is retained. If a feed on the root it will be place in `default` menu.
 
