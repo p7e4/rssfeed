@@ -49,7 +49,7 @@ rssfeed.parse(text)
 }
 ```
 
-> rssfeed **does not** escape HTML tag, which mean if you does not check the content and display it somewhere html can be rendered, it may lead to [Cross-site scripting](https://developer.mozilla.org/en-US/docs/Glossary/Cross-site_scripting) attacks.
+> rssfeed **does not** escape HTML tags, which means you had to sanitization content otherwise it may lead to [Cross-site scripting](https://developer.mozilla.org/en-US/docs/Glossary/Cross-site_scripting) attacks, a recommended choice is [nh3](https://github.com/messense/nh3).
 
 
 ### opml parse
@@ -97,5 +97,6 @@ rssfeed.opmlParse(opml)
 }
 ```
 
-as you can see, a two-layer structure will always be generated regardless of the original structure. If the original file includes multiple levels, only the outermost menu is retained. If a feed on the root it will be place in `default` menu.
+
+
 

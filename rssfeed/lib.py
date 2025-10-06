@@ -1,7 +1,7 @@
 from dateutil.parser import parse as timeParse
 from xml.etree import ElementTree
 
-__version__ = "0.4.1"
+__version__ = "0.4.2"
 
 class ParseError(Exception):
     pass
@@ -17,7 +17,8 @@ def _parse(data):
         raise ParseError("xml parse fail") from e
     return parser
 
-def parse(data):
+def parse(data, url=None):
+    if url: url = url[:8] + url[8:].rsplit("/")[0]
     items = list()
     for event, elem in _parse(data).read_events():
         tag = elem.tag.split("}", 1)[1] if elem.tag.startswith("{") else elem.tag
@@ -44,13 +45,12 @@ def parse(data):
                             i["timestamp"] = int(timeParse(text).timestamp())
                         except Exception as e:
                             raise ParseError("time parse fail") from e
-                    # if len(items) and items[0]["timestamp"] < i["timestamp"]:
-                    #     items[0]["timestamp"] = i["timestamp"]
                 case "link":
                     i["url"] = text or elem.get("href")
+                    if url and not i["url"].startswith("http"):
+                        i["url"] = f"{url}/{i["url"].lstrip("/")}"
                 case "title" | "author":
                     i[tag] = text
-
 
     if not items:
         raise ParseError("not valid result")
