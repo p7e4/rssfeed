@@ -1,7 +1,7 @@
 from dateutil.parser import parse as timeParse
 from xml.etree import ElementTree
 
-__version__ = "0.4.2"
+__version__ = "0.4.3"
 
 class ParseError(Exception):
     pass
