@@ -2,7 +2,7 @@ from email.utils import parsedate_to_datetime
 from xml.etree import ElementTree
 from datetime import datetime
 
-__version__ = "0.4.4"
+__version__ = "0.4.5"
 
 class ParseError(Exception):
     pass
@@ -68,7 +68,7 @@ def parse(data, url=None):
                         i["author"] = text
                 case "title":
                     if not i["title"]:
-                        i[title] = text
+                        i["title"] = text
 
     if not items:
         raise ParseError("not valid result")
