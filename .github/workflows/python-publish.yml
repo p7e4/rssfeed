@@ -16,8 +16,8 @@ jobs:
           python-version: '3.x'
       - name: Install dependencies
         run: |
-          python3 -m pip install --upgrade --progress-bar off pip
-          pip install --upgrade --progress-bar off build pdm-backend twine
+          python3 -m pip install --upgrade --no-cache-dir --progress-bar off pip
+          pip install --upgrade --no-cache-dir --progress-bar off build pdm-backend twine
       - name: Build and publish
         env:
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}

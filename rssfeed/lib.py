@@ -1,7 +1,8 @@
-from dateutil.parser import parse as timeParse
+from email.utils import parsedate_to_datetime
 from xml.etree import ElementTree
+from datetime import datetime
 
-__version__ = "0.4.2"
+__version__ = "0.4.3"
 
 class ParseError(Exception):
     pass
@@ -17,14 +18,26 @@ def _parse(data):
         raise ParseError("xml parse fail") from e
     return parser
 
+def timeParse(s):
+    if not s: return 0
+    try:
+        if s.isdigit():
+            return int(s)
+        if len(s) > 4 and s[4] == "-":
+            t = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        else:
+            t = parsedate_to_datetime(s)
+        return int(t.timestamp())
+    except (TypeError, ValueError):
+        return 0
+
 def parse(data, url=None):
-    if url: url = url[:8] + url[8:].rsplit("/")[0]
+    if url: url = url[:8] + url[8:].split("/")[0]
     items = list()
     for event, elem in _parse(data).read_events():
-        tag = elem.tag.split("}", 1)[1] if elem.tag.startswith("{") else elem.tag
-        text = elem.text.strip() if elem.text else str()
+        tag = elem.tag.rsplit("}", 1)[-1]
         if event == "start":
-            if tag in ("channel", "RDF", "feed", "item", "entry"):
+            if tag in ("channel", "feed", "item", "entry"):
                 items.append({
                     "title": str(),
                     "author": str(),
@@ -33,31 +46,36 @@ def parse(data, url=None):
                     "content": str()
                 })
         else:
+            if not (elem.text and (text:=elem.text.strip())) and tag != "link":
+                continue
             i = items[-1]
             match tag:
-                case "description" | "encoded" | "summary" | "content":
+                case "content" | "encoded":
                     i["content"] = text
-                case "pubDate" | "updated" | "published" | "lastBuildDate":
-                    if text.isdigit():
-                        i["timestamp"] = int(text)
-                    elif text:
-                        try:
-                            i["timestamp"] = int(timeParse(text).timestamp())
-                        except Exception as e:
-                            raise ParseError("time parse fail") from e
+                case "summary" | "description":
+                    if not i["content"]: i["content"] = text
+                case "pubDate" | "published" | "date":
+                    try:
+                        if not i["timestamp"]: i["timestamp"] = timeParse(text)
+                    except Exception as e:
+                        raise ParseError("time parse fail") from e
                 case "link":
-                    i["url"] = text or elem.get("href")
-                    if url and not i["url"].startswith("http"):
+                    if not i["url"]: i["url"] = elem.get("href") or text
+                    if not i["url"].startswith(("http://", "https://")) and url:
                         i["url"] = f"{url}/{i["url"].lstrip("/")}"
-                case "title" | "author":
-                    i[tag] = text
+                case "author" | "name" | "creator":
+                    if not i["author"]:
+                        i["author"] = text
+                case "title":
+                    if not i["title"]:
+                        i[title] = text
 
     if not items:
         raise ParseError("not valid result")
 
     feed = {
         "name": items[0]["title"],
-        "lastupdate": items[0]["timestamp"],
+        "lastupdate": max(i["timestamp"] for i in items[1:]),
         "items": items[1:]
     }
 
