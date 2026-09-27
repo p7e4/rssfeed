@@ -2,7 +2,7 @@ from email.utils import parsedate_to_datetime
 from xml.etree import ElementTree
 from datetime import datetime
 
-__version__ = "0.4.3"
+__version__ = "0.4.4"
 
 class ParseError(Exception):
     pass
