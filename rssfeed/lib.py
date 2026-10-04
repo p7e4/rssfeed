@@ -2,21 +2,10 @@ from email.utils import parsedate_to_datetime
 from xml.etree import ElementTree
 from datetime import datetime
 
-__version__ = "0.4.5"
+__version__ = "0.5.0"
 
 class ParseError(Exception):
     pass
-
-def _parse(data):
-    if not (data:=data.lstrip()):
-        raise ParseError("empty data")
-    parser = ElementTree.XMLPullParser(("start", "end"))
-    try:
-        parser.feed(data)
-        parser.close()
-    except ElementTree.ParseError as e:
-        raise ParseError("xml parse fail") from e
-    return parser
 
 def timeParse(s):
     if not s: return 0
@@ -31,60 +20,73 @@ def timeParse(s):
     except (TypeError, ValueError):
         return 0
 
-def parse(data, url=None):
-    if url: url = url[:8] + url[8:].split("/")[0]
+def parse(data):
+    if not (data:=data.lstrip()): raise ParseError("empty data")
+    try:
+        root = ElementTree.fromstring(data)
+    except Exception as e:
+        raise ParseError("xml parse fail") from e
+
+    if not root.tag.endswith(("feed", "rss", "RDF")):
+        raise ParseError("not rss")
+
+    for e in root.iter():
+        if e.tag[0] == "{":
+            e.tag = e.tag.rpartition("}")[2]
+
+    if root.tag == "rss": root = root.find("channel")
+    if root is None: raise ParseError("no channel elem found")
+    baseUrl = e.text or e.get("href") if (e:=root.find("link")) is not None else None
+    if baseUrl and (i:=baseUrl.find("/", 8)) > 0:
+        baseUrl = baseUrl[:i]
+
+    def findText(*x):
+        for i in x:
+            if (a:=e.findtext(i)) and (a:=a.strip()):
+                return a
+        return str()
+
+    def findLink(e):
+        link = e.find("link")
+        if link is not None:
+            if link.get("rel") in ("related", "replies"):
+                link = e.find("link[@rel='alternate']")
+            link = link.text.strip() if link.text else link.get("href")
+
+        if not link and (a:=findText("guid", "id")).startswith("http"):
+            link = a
+
+        if baseUrl and link and not link.startswith(("http://", "https://")):
+            return f"{baseUrl}/{link.lstrip("/")}"
+        return link or str()
+
     items = list()
-    for event, elem in _parse(data).read_events():
-        tag = elem.tag.rsplit("}", 1)[-1]
-        if event == "start":
-            if tag in ("channel", "feed", "item", "entry"):
-                items.append({
-                    "title": str(),
-                    "author": str(),
-                    "timestamp": 0,
-                    "url": str(),
-                    "content": str()
-                })
-        else:
-            if not (elem.text and (text:=elem.text.strip())) and tag != "link":
-                continue
-            i = items[-1]
-            match tag:
-                case "content" | "encoded":
-                    i["content"] = text
-                case "summary" | "description":
-                    if not i["content"]: i["content"] = text
-                case "pubDate" | "published" | "date":
-                    try:
-                        if not i["timestamp"]: i["timestamp"] = timeParse(text)
-                    except Exception as e:
-                        raise ParseError("time parse fail") from e
-                case "link":
-                    if not i["url"]: i["url"] = elem.get("href") or text
-                    if not i["url"].startswith(("http://", "https://")) and url:
-                        i["url"] = f"{url}/{i["url"].lstrip("/")}"
-                case "author" | "name" | "creator":
-                    if not i["author"]:
-                        i["author"] = text
-                case "title":
-                    if not i["title"]:
-                        i["title"] = text
-
-    if not items:
-        raise ParseError("not valid result")
-
-    feed = {
-        "name": items[0]["title"],
-        "lastupdate": max(i["timestamp"] for i in items[1:]),
-        "items": items[1:]
+    for e in root.iterfind("entry" if root.tag == "feed" else "item"):
+        items.append({
+            "title": findText("title"),
+            "author": findText("author", "author/name", "creator"),
+            "timestamp": timeParse(findText("pubDate", "published", "updated", "date")),
+            "url": findLink(e),
+            "content": findText("content", "encoded", "description", "summary")
+        })
+    return {
+        "name": root.findtext("title") or root.findtext("channel/title") or str(),
+        "lastupdate": max(i["timestamp"] for i in items) if items else 0,
+        "items": items,
     }
 
-    return feed
-
 def opmlParse(data):
+    if not (data:=data.lstrip()): raise ParseError("empty data")
+    parser = ElementTree.XMLPullParser(("start", "end"))
+    try:
+        parser.feed(data)
+        parser.close()
+    except Exception as e:
+        raise ParseError("xml parse fail") from e
+
     path = list()
     result = dict(default=list())
-    for event, elem in _parse(data).read_events():
+    for event, elem in parser.read_events():
         if elem.tag != "outline":
             continue
         if event == "start":
@@ -101,7 +103,7 @@ def opmlParse(data):
             if elem.get("type") != "rss":
                 path.pop()
 
-    if not result["default"]:
+    if not result.get("default"):
         del result["default"]
 
     return result
